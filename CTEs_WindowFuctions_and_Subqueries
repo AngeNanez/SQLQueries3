@@ -1,0 +1,87 @@
+/* Product Category & Ship_Mode other than “Same Day” delivery */
+
+SELECT distinct o.ship_mode, p.category
+FROM orders o
+RIGHT JOIN products p USING (product_id)
+WHERE ship_mode NOT LIKE 'Same Day'
+ORDER BY 1
+ 
+---
+
+/*Most used shipping class*/
+
+SELECT ship_mode,
+	count(CASE
+		WHEN ship_mode = 'Standard Class' THEN 'St'
+		WHEN ship_mode = 'Second Class' THEN 'Snd'
+		WHEN ship_mode = 'First Class' THEN 'Fst'
+		When ship_mode = 'Same day' THEN 'SD'
+		else 'Undefined'
+	end) as Total_per_ShipMode
+FROM orders
+GROUP BY 1
+
+--- 
+
+/* Percentage of Sales ORDER BY Time to Deliver > 5 days */
+
+SELECT time_to_deliver, 
+SUM(SUM(sales)) OVER () as total_sales,
+CONCAT(ROUND(SUM(sales)/ SUM(SUM(sales)) OVER (),4)*100, '%') as percentage
+FROM (
+	SELECT o.order_id, p.category, (o.ship_date - o.order_date) AS Time_to_Deliver, sales, profit
+	FROM orders o
+	JOIN products p USING (product_id)
+	WHERE (o.ship_date - o.order_date)> '5 days'
+	ORDER BY 4 DESC) T1
+GROUP BY 1
+
+--- 
+
+/* Percentage of Sales ORDER BY Time to Deliver */
+
+SELECT time_to_deliver, 
+SUM(SUM(sales)) OVER () as total_sales,
+CONCAT(ROUND(SUM(sales)/ SUM(SUM(sales)) OVER (),4)*100, '%') as percentage
+FROM (
+	SELECT o.order_id, p.category, (o.ship_date - o.order_date) AS Time_to_Deliver, sales, profit
+	FROM orders o
+	JOIN products p USING (product_id)
+	ORDER BY 4 DESC) T1
+GROUP BY 1
+ORDER BY 3 DESC
+
+--- 
+
+SELECT time_to_deliver, 
+SUM(SUM(sales)) OVER () as total_sales,
+CONCAT(ROUND(SUM(sales)/ SUM(SUM(sales)) OVER (),4)*100, '%') as percentage_of_total_sales,
+CONCAT(ROUND(SUM(profit)/ SUM(SUM(sales)) OVER (),5)*100, '%') as profit_percentage
+FROM (
+	SELECT o.order_id, p.category, (o.ship_date - o.order_date) AS Time_to_Deliver, sales, profit
+	FROM orders o
+	JOIN products p USING (product_id)
+	ORDER BY 4 DESC) T1
+GROUP BY 1
+ORDER BY 3 DESC
+
+---
+
+/* Percentage profit per product */
+
+WITH 
+	CTE_PRODUCTS AS (SELECT DISTINCT product_name, category, product_id
+					FROM products
+					),
+	CTE_PROFIT AS (SELECT ship_mode, SUM(quantity) as qty, profit, product_id
+				 	FROM orders
+				   GROUP BY 1, 3,4)
+				 
+SELECT CTE_PRODUCTS.product_name
+		,ROUND(SUM(CTE_PROFIT.profit)/sum(sum(CTE_PROFIT.profit)) over()*100,4) as profit_percentage_product
+FROM CTE_PRODUCTS
+JOIN CTE_PROFIT
+ON CTE_PRODUCTS.product_id = CTE_PROFIT.product_id
+GROUP BY 1
+ORDER BY 2 DESC
+
